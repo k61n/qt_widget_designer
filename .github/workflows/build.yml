@@ -1,0 +1,36 @@
+name: Build
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  macos:
+    runs-on: ${{matrix.os}}
+    strategy:
+      matrix:
+        include:
+          - os: macos-14
+          - os: windows-2022
+            comp: msvc2022
+    steps:
+      - uses: actions/checkout@v4
+      - id: qtsetup
+        uses: k61n/qt_static_builds/.github/actions/checkout@main
+        with:
+          version: "6.10.0"
+          compiler: ${{matrix.comp}}
+      - shell: bash
+        if: runner.os != 'Windows'
+        run: |
+          echo ${{steps.qtsetup.outputs.qtpath}}
+          ls -l
+          ls -l ${{steps.qtsetup.outputs.qtpath}}
+      - shell: powershell
+        if: runner.os == 'Windows'
+        run: |
+          Write-Host "${{ steps.qtsetup.outputs.qtpath }}"
+          Get-ChildItem -Force
+          Get-ChildItem -Force "${{ steps.qtsetup.outputs.qtpath }}"
