@@ -29,7 +29,7 @@ jobs:
         id: qtsetup
         uses: k61n/qt_static_builds/.github/actions/checkout@main
         with:
-          version: "6.10.0"
+          version: 6.10.0
           compiler: ${{matrix.comp}}
 
       - name: Build qttools
@@ -44,7 +44,16 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_PREFIX_PATH=${{steps.qtsetup.outputs.qtpath}}
           cmake --build . --target designer --parallel ${cores}
-          ls -l bin
+          os=$(echo $RUNNER_OS | tr '[:upper:]' '[:lower:]')
+          arch=$(uname -m)
+          case "$arch" in
+            aarch64) arch="arm64" ;;
+            x86_64)  arch="x64" ;;
+          esac
+          cd bin
+          ditto -c -k --sequesterRsrc --keepParent "Designer.app" designer-${os}-${arch}.zip
+          echo "name=designer-${os}-${arch}.zip" >> $GITHUB_ENV
+          echo "path=$(realpath designer-${os}-${arch}.zip)" >> $GITHUB_ENV
 
       - name: Setup llvm
         if: runner.os == 'Windows'
@@ -74,9 +83,13 @@ jobs:
             -DCMAKE_EXE_LINKER_FLAGS="-static" `
             -DCMAKE_SHARED_LINKER_FLAGS="-static"
           cmake --build . --target designer --parallel ${env:NUMBER_OF_PROCESSORS}
-          Get-ChildItem -Force "bin"
+          $os = $env:RUNNER_OS.ToLower()
+          $arch = ($env:PROCESSOR_ARCHITECTURE.ToLower() -replace '^amd64$', 'x64')
+          $path = (Resolve-Path "bin/designer.exe").Path
+          Add-Content -Path $env:GITHUB_ENV -Value "name=designer-${os}-${arch}.zip"
+          Add-Content -Path $env:GITHUB_ENV -Value "path=${path}"
 
-#      - uses: actions/upload-artifact@v4
-#        with:
-#          name: ${{steps.build.outputs.fn}}
-#          path: qttools/bin
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{env.name}}
+          path: ${{env.path}}
