@@ -21,12 +21,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Checkout qttools
-        uses: actions/checkout@v4
+        uses: ./.github/actions/checkout_qttools
         with:
-          repository: qt/qttools
-          ref: 6.10.0
-          path: qttools
-          submodules: recursive
+          version: 6.10.0
 
       - name: Checkout static Qt release
         id: qtsetup
@@ -48,18 +45,19 @@ jobs:
             -DCMAKE_PREFIX_PATH=${{steps.qtsetup.outputs.qtpath}}
           cmake --build . --target designer --parallel ${cores}
           ls -l bin
+
       - name: Setup llvm
         if: runner.os == 'Windows'
         shell: powershell
         run: |
-          $arch = $env:PROCESSOR_ARCHITECTURE.ToLower() -replace '^arm64$', 'aarch64' -replace '^amd64$', 'i686'
+          $arch = $env:PROCESSOR_ARCHITECTURE.ToLower() -replace '^arm64$', 'aarch64' -replace '^amd64$', 'x86_64'
           Start-BitsTransfer -Source `
             "https://github.com/mstorsjo/llvm-mingw/releases/download/20231128/llvm-mingw-20231128-ucrt-${arch}.zip" `
             -Destination .
           7z x .\llvm-mingw-20231128-ucrt-${arch}.zip -o"./"
           Rename-Item -Path "llvm-mingw-20231128-ucrt-${arch}" -NewName "llvm"
           Remove-Item "llvm-mingw-20231128-ucrt-${arch}.zip"
-          choco install ninja -f -y
+
       - name: Build qttools
         if: runner.os == 'Windows'
         shell: powershell
@@ -77,6 +75,7 @@ jobs:
             -DCMAKE_SHARED_LINKER_FLAGS="-static"
           cmake --build . --target designer --parallel ${env:NUMBER_OF_PROCESSORS}
           Get-ChildItem -Force "bin"
+
 #      - uses: actions/upload-artifact@v4
 #        with:
 #          name: ${{steps.build.outputs.fn}}

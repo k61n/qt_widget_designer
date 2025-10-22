@@ -1,0 +1,34 @@
+name: "Checkout qttools"
+description: "Downloads sources from download.qt.io"
+
+inputs:
+  version:
+    required: true
+    description: "long version, e.g. 6.10.0"
+
+runs:
+  using: composite
+  steps:
+    - id: unix
+      shell: bash
+      if: runner.os != 'Windows'
+      run: |
+        v="${{ inputs.version }}"
+        vv="${v%.*}"
+        wget -q \
+          "https://download.qt.io/archive/qt/${vv}/${v}/submodules/qttools-everywhere-src-${v}.tar.xz"
+        tar -xf "qttools-everywhere-src-${v}.tar.xz"
+        mv "qttools-everywhere-src-${v}" "qttools"
+        rm "qttools-everywhere-src-${v}.tar.xz"
+    - id: windows
+      shell: powershell
+      if: runner.os == 'Windows'
+      run: |
+        $v = '${{ inputs.version }}'
+        $vv = ($v -split '\.')[0..1] -join '.'
+        Start-BitsTransfer -Source `
+          "https://download.qt.io/archive/qt/${vv}/${v}/submodules/qttools-everywhere-src-${v}.zip" `
+          -Destination .
+        7z x .\qttools-everywhere-src-${v}.zip -o"./"
+        Remove-Item "qttools-everywhere-src-${v}.zip"
+        Rename-Item -Path "qttools-everywhere-src-${v}" -NewName "qttools"
