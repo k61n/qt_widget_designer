@@ -14,7 +14,7 @@ jobs:
         include:
           - os: macos-14
           - os: windows-2022
-            comp: msvc2022
+            comp: llvm1706
     steps:
 
       - name: Fetch sources
@@ -26,6 +26,7 @@ jobs:
           repository: qt/qttools
           ref: 6.10.0
           path: qttools
+          submodules: recursive
 
       - name: Checkout static Qt release
         id: qtsetup
@@ -35,16 +36,48 @@ jobs:
           compiler: ${{matrix.comp}}
 
       - name: Build qttools
-        shell: bash
         if: runner.os != 'Windows'
+        shell: bash
         run: |
-          ls -l
-          ls -l ${{steps.qtsetup.outputs.qtpath}}
-          ls qttools
-      - name: Build qttools
-        shell: powershell
+          cores=$(nproc 2>/dev/null || sysctl -n hw.ncpu)
+          mkdir -p qttools/build && cd qttools/build
+          cmake \
+            .. \
+            -GNinja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH=${{steps.qtsetup.outputs.qtpath}}
+          cmake --build . --target designer --parallel ${cores}
+          ls -l bin
+      - name: Setup llvm
         if: runner.os == 'Windows'
+        shell: powershell
         run: |
-          Get-ChildItem -Force
-          Get-ChildItem -Force "${{ steps.qtsetup.outputs.qtpath }}"
-          Get-ChildItem -Force "qttools"
+          $arch = $env:PROCESSOR_ARCHITECTURE.ToLower() -replace '^arm64$', 'aarch64' -replace '^amd64$', 'i686'
+          Start-BitsTransfer -Source `
+            "https://github.com/mstorsjo/llvm-mingw/releases/download/20231128/llvm-mingw-20231128-ucrt-${arch}.zip" `
+            -Destination .
+          7z x .\llvm-mingw-20231128-ucrt-${arch}.zip -o"./"
+          Rename-Item -Path "llvm-mingw-20231128-ucrt-${arch}" -NewName "llvm"
+          Remove-Item "llvm-mingw-20231128-ucrt-${arch}.zip"
+          choco install ninja -f -y
+      - name: Build qttools
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          $llvm_path = (Resolve-Path "llvm").Path
+          $env:Path = "${llvm_path}\bin;" + $env:Path
+          mkdir qttools/build
+          cd qttools/build
+          cmake `
+            .. `
+            -GNinja `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DCMAKE_PREFIX_PATH=${{steps.qtsetup.outputs.qtpath}} `
+            -DCMAKE_EXE_LINKER_FLAGS="-static" `
+            -DCMAKE_SHARED_LINKER_FLAGS="-static"
+          cmake --build . --target designer --parallel ${env:NUMBER_OF_PROCESSORS}
+          Get-ChildItem -Force "bin"
+#      - uses: actions/upload-artifact@v4
+#        with:
+#          name: ${{steps.build.outputs.fn}}
+#          path: qttools/bin
