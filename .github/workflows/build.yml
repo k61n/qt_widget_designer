@@ -13,6 +13,7 @@ jobs:
       matrix:
         include:
           - os: macos-14
+          - os: macos-15-intel
           - os: windows-2022
             comp: llvm1706
           - os: windows-11-arm
@@ -48,10 +49,6 @@ jobs:
           cmake --build . --target designer --parallel ${cores}
           os=$(echo $RUNNER_OS | tr '[:upper:]' '[:lower:]')
           arch=$(uname -m)
-          case "$arch" in
-            aarch64) arch="arm64" ;;
-            x86_64)  arch="x64" ;;
-          esac
           cd bin
           ditto -c -k --sequesterRsrc --keepParent "Designer.app" designer-${os}-${arch}.zip
           echo "name=designer-${os}-${arch}.zip" >> $GITHUB_ENV
