@@ -14,7 +14,6 @@ jobs:
         include:
           - os: macos-14
           - os: macos-15-intel
-          - os: ubuntu-22.04
           - os: windows-2022
             comp: llvm1706
           - os: windows-11-arm
@@ -27,27 +26,14 @@ jobs:
       - name: Checkout qttools
         uses: ./.github/actions/checkout_qttools
         with:
-          version: 6.10.0
+          version: 6.11.0
 
       - name: Checkout static Qt release
         id: qtsetup
         uses: k61n/qt_static_builds/.github/actions/checkout@main
         with:
-          version: 6.10.0
+          version: 6.11.0
           compiler: ${{matrix.comp}}
-
-#      - name: Maximize Build Space
-#        if: runner.os == 'Linux'
-#        uses: jlumbroso/free-disk-space@v1.3.1
-#        with:
-#          tool-cache: true
-      - name: Linux env
-        if: runner.os == 'Linux'
-        shell: bash
-        run: |
-          sudo apt update
-          sudo apt install -y wget xz-utils \
-            build-essential libgl1-mesa-dev cmake ninja-build
 
       - name: Build qttools
         if: runner.os != 'Windows'
