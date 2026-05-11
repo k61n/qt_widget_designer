@@ -15,9 +15,9 @@ jobs:
           - os: macos-15
           - os: macos-15-intel
           - os: windows-2022
-            comp: llvm1706
-#          - os: windows-11-arm
-#            comp: llvm1706
+            comp: msvc2022
+          - os: windows-11-arm
+            comp: msvc2022
     steps:
 
       - name: Fetch sources
@@ -57,38 +57,40 @@ jobs:
           echo "name=designer-${os}-${arch}.zip" >> $GITHUB_ENV
           echo "path=$(realpath designer-${os}-${arch}.zip)" >> $GITHUB_ENV
 
-      - name: Setup llvm
+      - name: env
         if: runner.os == 'Windows'
         shell: powershell
         run: |
-          $arch = $env:PROCESSOR_ARCHITECTURE.ToLower() -replace '^arm64$', 'aarch64' -replace '^amd64$', 'x86_64'
-          Start-BitsTransfer -Source `
-            "https://github.com/mstorsjo/llvm-mingw/releases/download/20231128/llvm-mingw-20231128-ucrt-${arch}.zip" `
-            -Destination .
-          7z x .\llvm-mingw-20231128-ucrt-${arch}.zip -o"./"
-          Rename-Item -Path "llvm-mingw-20231128-ucrt-${arch}" -NewName "llvm"
-          Remove-Item "llvm-mingw-20231128-ucrt-${arch}.zip"
+          $os = $env:RUNNER_OS.ToLower()
+          $arch = $env:PROCESSOR_ARCHITECTURE.ToLower()
+          $vspath = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise"
+          Add-Content -Path $env:GITHUB_ENV -Value "os=${os}"
+          Add-Content -Path $env:GITHUB_ENV -Value ("arch=" + ($arch -replace '^amd64$', 'x64'))
+          Add-Content -Path $env:GITHUB_ENV -Value "vspath=${vspath}"
+          mkdir qttools/build
 
       - name: Build qttools
         if: runner.os == 'Windows'
+        shell: cmd
+        run: |
+          call "${{env.vspath}}\VC\Auxiliary\Build\vcvarsall.bat" ${{env.arch}}
+          cd qttools/build
+          cmake ^
+            .. ^
+            -GNinja ^
+            -DCMAKE_BUILD_TYPE=Release ^
+            -DCMAKE_PREFIX_PATH=${{steps.qtsetup.outputs.qtpath}} ^
+            -DCMAKE_EXE_LINKER_FLAGS="-static" ^
+            -DCMAKE_SHARED_LINKER_FLAGS="-static"
+          cmake --build . --target designer --config Release
+
+      - name: Prepare artifacts
+        if: runner.os == 'Windows'
         shell: powershell
         run: |
-          $llvm_path = (Resolve-Path "llvm").Path
-          $env:Path = "${llvm_path}\bin;" + $env:Path
-          mkdir qttools/build
           cd qttools/build
-          cmake `
-            .. `
-            -GNinja `
-            -DCMAKE_BUILD_TYPE=Release `
-            -DCMAKE_PREFIX_PATH=${{steps.qtsetup.outputs.qtpath}} `
-            -DCMAKE_EXE_LINKER_FLAGS="-static" `
-            -DCMAKE_SHARED_LINKER_FLAGS="-static"
-          cmake --build . --target designer --parallel ${env:NUMBER_OF_PROCESSORS}
-          $os = $env:RUNNER_OS.ToLower()
-          $arch = ($env:PROCESSOR_ARCHITECTURE.ToLower() -replace '^amd64$', 'x64')
           $path = (Resolve-Path "bin/designer.exe").Path
-          Add-Content -Path $env:GITHUB_ENV -Value "name=designer-${os}-${arch}.zip"
+          Add-Content -Path $env:GITHUB_ENV -Value "name=designer-${{env.os}}-${{env.arch}}.zip"
           Add-Content -Path $env:GITHUB_ENV -Value "path=${path}"
 
       - uses: actions/upload-artifact@v4
