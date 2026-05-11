@@ -12,7 +12,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: macos-14
+          - os: macos-15
           - os: macos-15-intel
           - os: windows-2022
             comp: llvm1706
