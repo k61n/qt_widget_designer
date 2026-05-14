@@ -26,13 +26,13 @@ jobs:
       - name: Checkout qttools
         uses: ./.github/actions/checkout_qttools
         with:
-          version: 6.11.0
+          version: 6.11.1
 
       - name: Checkout static Qt release
         id: qtsetup
         uses: k61n/qt_static_builds/.github/actions/checkout@main
         with:
-          version: 6.11.0
+          version: 6.11.1
           compiler: ${{matrix.comp}}
 
       - name: Build qttools
